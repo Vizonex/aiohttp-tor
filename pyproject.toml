@@ -10,7 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "aiostem >= 0.4.5",
     "aiohttp",
-    "aiohttp-socks"
+    "aiohttp-socks",
+    "aiofiles"
 ]
 
 
