@@ -1,0 +1,16 @@
+[project]
+name = "aiohttp-tor"
+version = "0.1.0"
+description = "Tor utilities for using with aiohttp"
+readme = "README.md"
+authors = [
+    { name = "Vizonex", email = "VizonexBusiness@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "aiostem >= 0.4.5",
+    "aiohttp",
+    "aiohttp-socks"
+]
+
+
