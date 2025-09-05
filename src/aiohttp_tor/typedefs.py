@@ -1,4 +1,3 @@
-import enum
 import sys
 import typing
 
@@ -12,6 +11,3 @@ else:
 
 _P = typing.ParamSpec("P")
 _T = typing.TypeVar("_T")
-
-_SENTINAL = enum.Enum("_SENTINAL", "SENTINAL")
-SENTINAL = _SENTINAL.SENTINAL
