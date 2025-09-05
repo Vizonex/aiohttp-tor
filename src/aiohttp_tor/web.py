@@ -17,10 +17,10 @@ from aiohttp.web import Application, GracefulExit, HostSequence, _cancel_tasks, 
 from aiohttp.web_log import AccessLogger
 from aiosignal import Signal
 from aiostem import Controller
+from aiostem.exceptions import ControllerError
 from multidict import MultiMapping
 
 from .process import MessageHandler, launch
-from aiostem.exceptions import ControllerError
 
 
 class HiddenServiceController(Controller):
@@ -233,7 +233,7 @@ def run_app(
             reuse_address=reuse_address,
             reuse_port=reuse_port,
             handler_cancellation=handler_cancellation,
-            hidden_service_dir=hidden_service_dir
+            hidden_service_dir=hidden_service_dir,
         )
     )
 

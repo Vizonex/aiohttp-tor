@@ -1,13 +1,12 @@
 import asyncio
-from contextlib import suppress
-from typing import TYPE_CHECKING
+from typing import Any, Generator
 
 from aiohttp import ClientConnectionError
+from aiohttp.client_proto import ResponseHandler
 from aiohttp_socks import ProxyConnector, ProxyType
 from aiostem.controller import DEFAULT_CONTROL_HOST, DEFAULT_CONTROL_PORT, Controller
 from aiostem.reply import ReplySignal
 from aiostem.structures import Signal
-
 from .typedefs import Self
 
 DEFAULT_PROXY_PORT = 9050  # socks5
@@ -24,17 +23,17 @@ class RepeatingTimeout:
         self._handle: asyncio.TimerHandle | None = None
         self._lock = asyncio.Lock()
 
-    def __new_callback(self):
+    def __new_callback(self) -> None:
         """Creats a new timer-handle to wait on."""
         self._fut = self._loop.create_future()
         self._handle = self._loop.call_later(self._timeout, self._fut.set_result, None)
 
-    def reset(self):
+    def reset(self) -> None:
         """resets current cycle so that a new one afterwards can be made."""
         self._handle.cancel()
         self._fut.set_result(None)
 
-    async def wait(self):
+    async def wait(self) -> None:
         """Wait for running objects to complete"""
         async with self._lock:
             if not self._fut:
@@ -46,26 +45,32 @@ class RepeatingTimeout:
                 # reset timer...
                 self.__new_callback()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         await self.wait()
+        return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args) -> None:
         return
 
-    def __await__(self):
+    def __await__(self) -> Generator[Any, None, None]:
         return self.wait().__await__()
 
 
 class ControllerResponseError(Exception):
     """Bad Reply recieved while working with a tor controller"""
 
-    def __init__(self, status: int, msg: str):
+    def __init__(self, status: int, msg: str) -> None:
+        """Initalizes the error
+
+        :param status: the bad status from the controller
+        :param msg: the message given by the controller
+        """
         self.status = status
         self.msg = msg
-        super().__init__(msg)
 
-
-# Utilizes ProxyConnector as a Base to implement tor protocols on top of it.
+    def __str__(self):
+        """return exception as a string"""
+        return self.msg
 
 
 class TorConnector(ProxyConnector):
@@ -83,7 +88,7 @@ class TorConnector(ProxyConnector):
         ctrl_port: str = DEFAULT_CONTROL_PORT,
         ctrl_auth: str | None = None,
         **kwargs,
-    ):
+    ) -> None:
         """
         Initnalizes ProxyConnector and tor client
 
@@ -155,3 +160,21 @@ class TorConnector(ProxyConnector):
         if resp.is_error:
             raise ControllerResponseError(resp.status, resp.status_text)
         return resp
+
+    @classmethod
+    def from_url(
+        cls,
+        url: str,
+        ctrl_host: str = DEFAULT_CONTROL_HOST,
+        ctrl_port: str = DEFAULT_CONTROL_PORT,
+        ctrl_auth: str | None = None,
+    ) -> Self:
+        """return Connection to tor from a given proxy url
+
+        :param ctrl_host: the controller's hostname (default is 127.0.0.1)
+        :param ctrl_auth: your tor password (default is None)
+        :param ctrl_port: tor contoller's port (default is 9051)
+        """
+        return cls.from_url(
+            url, ctrl_auth=ctrl_auth, ctrl_host=ctrl_host, ctrl_port=ctrl_port
+        )

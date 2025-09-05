@@ -8,10 +8,11 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "aiostem >= 0.4.5",
+    "aiostem >= 0.4.5", # aiosteam backported 3.10 support (Via my suggestion)
     "aiohttp",
     "aiohttp-socks",
-    "aiofiles"
+    "aiofiles",
+    "async_lru"
 ]
 
 

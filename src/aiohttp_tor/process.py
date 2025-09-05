@@ -25,11 +25,16 @@ from typing import (
     Type,
     TypeAlias,
 )
+from ssl import SSLContext
+
+from .connector import TorConnector
 
 import async_timeout
 from aiosignal import Signal
 
 from .typedefs import _P, _T, Self
+
+from multidict import MultiMapping, MultiDict
 
 
 @lru_cache()
@@ -89,6 +94,8 @@ class MessageHandler:
         await self.on_message.send(msg)
 
 
+# WARNING: Do not use _launch_tor directly it may just
+# be a fork of the stem version but please use it at your own risk!!!
 async def _launch_tor(
     tor_cmd: str = "tor",
     args: list[str] | None = None,
@@ -97,7 +104,6 @@ async def _launch_tor(
     init_msg_handler: MessageHandler | None = None,
     timeout: Optional[float] = 90,
     take_ownership: bool = False,
-    close_output: bool = True,
     stdin: str | bytes | None = None,
 ):
     # sanity check that we got a tor binary
@@ -211,15 +217,69 @@ class TorProcess:
     You shouldn't be initializing using this directly,
     use it with launch() instead."""
 
-    def __init__(self, process: asyncio.subprocess.Process):
+    def __init__(
+        self,
+        process: asyncio.subprocess.Process,
+        ctrl_port: Optional[int] = None,
+        socks_port: Optional[int] = None,
+    ):
         self.process = process
         self._closed = False
+        self._ctrl_port = ctrl_port
+        self._socks_port = socks_port
 
     async def close(self):
         """Shuts down a given Tor process"""
         if not self._closed:
             self.process.terminate()
             await self.process.wait()
+
+    def connect(
+        self,
+        auth: Optional[str] = None,
+        ctrl_port: Optional[int] = None,
+        socks_port: Optional[int] = None,
+        host: str = "127.0.0.1",
+        ssl: Optional[SSLContext] = None,
+    ) -> TorConnector:
+        """return a connection from a given launched process
+
+        :param auth: a password to use for the connection (Optional).
+        :param ctrl_port: provide a control port for the connection
+            if none were given (Optional).
+        :param socks_port: provide a proxy port for the connection
+            if none were given (Optional).
+        :param host: The host of the given proxy, this should always be 127.0.0.1 (localhost)
+            unless under rare conditions where it must be obtained from somewhere else.
+        :param ssl: provide a given ssl context to use.
+
+        Raises
+        ------
+
+        ConnectionError
+            if `TorProcess` was already closed
+
+        TypeError 
+            if `TorProcess` doesn't have a control port or socks port provided to it.
+        """
+        if self._closed:
+            raise ConnectionError(f"{self.__class__.__name__} was already closed")
+
+        _socks_port = self._socks_port or socks_port
+        if not _socks_port:
+            raise TypeError("No socks port has been provided")
+
+        _ctrl_port = self._ctrl_port or ctrl_port
+        if not _ctrl_port:
+            raise TypeError("No control port has been provided")
+
+        return TorConnector(
+            host=host,
+            port=_socks_port,
+            ctrl_port=_ctrl_port,
+            ctrl_auth=auth,
+            proxy_ssl=ssl,
+        )
 
     async def __aenter__(self) -> Self:
         return self
@@ -279,13 +339,12 @@ def _wrap_async(
 async def launch(
     ctrl_port: int = 9051,
     socks_port: Optional[int] = 9050,
-    config: dict[str, Any] = {},
+    config: dict[str, list[str] | str | int] | MultiMapping[str | int] = {},
     tor_cmd: str = "tor",
     completion_percent: int = 100,
     init_msg_handler: MessageHandler | None = None,
     timeout: int = 90,
     take_ownership: bool = False,
-    close_output: bool = True,
 ) -> asyncio.subprocess.Process:
     """
     return a tor process after launching one::
@@ -307,44 +366,43 @@ async def launch(
     :param ctrl_port: The Controller port to use default: 9051
     :param socks_port: the Socks port to use default: 9050 this
         can also be ignored by passing None
-    :param config: Your Tor Configuration
+    :param config: Your Tor Configuration this can also be a MultiDict
     :param tor_cmd: the command to launch tor with
     :param completion_percent: the completetion percent before exiting
     :param init_msg_handler: transformed to a signal callback via aiosignal
         is used for sending back messages asynchronously.
     :param timeout: The time to wait before quitting
     :param take_ownership: weather the program takes ownership over the given process
-    :param close_output: close process output
-
-
     """
 
     config["ControlPort"] = str(ctrl_port)
     if socks_port is not None:
         config["SocksPort"] = str(socks_port)
+
     if init_msg_handler:
         init_msg_handler.freeze()
 
     if "Log" in config:
-        stdout_options = ["DEBUG stdout", "INFO stdout", "NOTICE stdout"]
+        stdout_options = {"DEBUG stdout", "INFO stdout", "NOTICE stdout"}
 
-        if isinstance(config["Log"], str):
-            config["Log"] = [config["Log"]]
+        # NOTE: MultiDict has a bit of an advantage with 
+        # one key taking multiple values hence why I added it in. - Vizonex
+        if not isinstance(config, MultiDict):
+            if isinstance(config["Log"], str):
+                config['Log'] = [config["Log"]]
+                
+            if not any([log_config in stdout_options for log_config in config["Log"]]):
+                config["Log"].append("NOTICE stdout")
+        
+        elif not any([log_config in stdout_options for log_config in config.getall("Log")]):
+            config.add("Log", "NOTICE stdout")
 
-        has_stdout = False
 
-        for log_config in config["Log"]:
-            if log_config in stdout_options:
-                has_stdout = True
-                break
-
-        if not has_stdout:
-            config["Log"].append("NOTICE stdout")
 
     config_str = ""
 
-    for key, values in list(config.items()):
-        if isinstance(values, str):
+    for key, values in config.items():
+        if isinstance(values, (str, int)):
             config_str += f"{key} {values} "
         else:
             for value in values:
@@ -359,7 +417,8 @@ async def launch(
             init_msg_handler,
             timeout,
             take_ownership,
-            close_output,
             stdin=config_str.encode("utf-8", "replace"),
-        )
+        ),
+        ctrl_port=ctrl_port,
+        socks_port=socks_port
     )
