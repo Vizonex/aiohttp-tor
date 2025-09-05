@@ -5,7 +5,7 @@ seemless transitions with aiohttp and tor. For both clients and hosting.
 
 ## Running Clients
 ```python
-from aiohttp_tor import TorConnector, launch, MessageHandler
+from aiohttp_tor import launch, MessageHandler
 from aiohttp import ClientSession
 import asyncio
 
@@ -18,11 +18,11 @@ async def send_message(msg:str):
     print(msg)
 
 
-
 async def request_for_onionsite():
-    async with launch(ctrl_port=9051, socks_port=9050, init_msg_handler=handler):
-        # TorConnector should mirror what you've launched tor with.
-        async with ClientSession(connector=TorConnector(port=9050, ctrl_port=9051)) as session:
+    async with launch(ctrl_port=9051, socks_port=9050, init_msg_handler=handler) as process:
+        # NOTE: use connect() to avoid any annoying setups. 
+        # there's nothing more stressful than remebering what ports to use.
+        async with ClientSession(connector=process.connect()) as session:
             async with session.get("http://mf34jlghauz5pxjcmdymdqbe5pva4v24logeys446tdrgd5lpsrocmqd.onion/index.html") as resp:
                 data = await resp.read()
                 print(data)
