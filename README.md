@@ -1,4 +1,6 @@
 # Aiohttp-Tor
+[![PyPI version](https://badge.fury.io/py/aiohttp-tor.svg)](https://badge.fury.io/py/aiohttp-tor)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/aiohttp-tor)
 
 Inspired by the stem library from the tor-project, this project attempts to make 
 seemless transitions with aiohttp and tor. For both clients and hosting. 
@@ -66,5 +68,6 @@ if __name__ == "__main__":
 - aiostem
 - aiohttp-socks (For sending Client Requests)
 - aiohttp
+
 
 
