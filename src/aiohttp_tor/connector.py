@@ -11,7 +11,6 @@ from .typedefs import Self
 
 DEFAULT_PROXY_PORT = 9050  # socks5
 
-
 # TODO: Maybe sperate library for this new class object?
 class RepeatingTimeout:
     """Ratelimits execution based on one task at a time."""
@@ -178,3 +177,4 @@ class TorConnector(ProxyConnector):
         return cls.from_url(
             url, ctrl_auth=ctrl_auth, ctrl_host=ctrl_host, ctrl_port=ctrl_port
         )
+
