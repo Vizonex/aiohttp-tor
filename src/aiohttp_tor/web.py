@@ -126,7 +126,6 @@ async def _run_app_as_hidden_service(
     except (ControllerError, OSError):
         _process = await launch(
             take_ownership=True,
-            close_output=True,
             timeout=launcher_timeout,
             init_msg_handler=message_handler,
         )
