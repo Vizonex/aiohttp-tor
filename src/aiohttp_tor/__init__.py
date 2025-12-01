@@ -8,7 +8,7 @@ from .process import MessageHandler as MessageHandler, launch as launch
 from .web import run_app as run_app
 
 __author__ = "Vizonex"
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 __all__ = (
