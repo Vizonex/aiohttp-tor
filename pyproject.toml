@@ -1,6 +1,6 @@
 [project]
 name = "aiohttp-tor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Tor utilities for using with aiohttp"
 readme = "README.md"
 authors = [
